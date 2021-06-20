@@ -119,3 +119,31 @@ func getTimeErrorResponse(option *discordgo.ApplicationCommandInteractionDataOpt
 
 	return ""
 }
+
+func checkSearchCommandErrors(session *discordgo.Session, interaction *discordgo.InteractionCreate) string {
+	for _, option := range interaction.ApplicationCommandData().Options {
+		var errorResponse = ""
+
+		switch option.Name {
+		case "game":
+			errorResponse = getGameErrorResponse(option)
+
+		case "amount":
+			errorResponse = getAmountErrorResponse(option)
+
+		case "notifyrole":
+			roles, _ := session.GuildRoles(interaction.GuildID)
+			errorResponse = getNotifyroleErrorResponse(option, roles)
+
+			//Time case could be extended to handle different time zones for erasmus students
+		case "time":
+			errorResponse = getTimeErrorResponse(option)
+		}
+
+		if len(errorResponse) > 0 {
+			return errorResponse
+		}
+	}
+
+	return ""
+}

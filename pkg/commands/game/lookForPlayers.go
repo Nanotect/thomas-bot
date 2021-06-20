@@ -20,6 +20,8 @@ const tmGaming = "773847927910432789"
 const itf = "687565213943332875"
 const choo = "694621018970390538"
 
+// Total file reduction (for now): 53 lines!!!!
+
 // LookCommand contains the /lookforplayers command
 type LookCommand struct {
 	db db.Database
@@ -86,14 +88,14 @@ func (l *LookCommand) InstallSlashCommands(s *discordgo.Session) error {
 	return nil
 }
 
-func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	conf, isLFP, err := l.checkConfig(i.GuildID, i.ChannelID)
+func (l *LookCommand) SearchCommand(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+	conf, isLFP, err := l.checkConfig(interaction.GuildID, interaction.ChannelID)
 	if err != nil {
-		l.sendInvisibleInteractionResponse(s, i, err.Error())
+		l.sendInvisibleInteractionResponse(session, interaction, err.Error())
 		return
 	}
 	if !isLFP {
-		l.sendInvisibleInteractionResponse(s, i, "This command only works in Requests channels")
+		l.sendInvisibleInteractionResponse(session, interaction, "This command only works in Requests channels")
 		return // not from a guild
 	}
 
@@ -102,37 +104,17 @@ func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.Interacti
 	var amount float64
 	timeString := "Now!"
 
-	for _, option := range i.ApplicationCommandData().Options {
-		var errorResponse = ""
-
-		switch option.Name {
-		case "game":
-			errorResponse = getGameErrorResponse(option)
-
-		case "amount":
-			errorResponse = getAmountErrorResponse(option)
-
-		case "notifyrole":
-			roles, _ := s.GuildRoles(i.GuildID)
-			errorResponse = getNotifyroleErrorResponse(option, roles)
-
-			//Time case could be extended to handle different time zones for erasmus students
-		case "time":
-			errorResponse = getTimeErrorResponse(option)
-		}
-
-		if len(errorResponse) > 0 {
-			l.sendInvisibleInteractionResponse(s, i, errorResponse)
-			return
-		}
+	var errString = checkSearchCommandErrors(session, interaction)
+	if len(errString) > 0 {
+		l.sendInvisibleInteractionResponse(session, interaction, errString)
 	}
 
-	err = l.createInviteEmbed(s, i, name, int(amount), timeString, selectedRoleID, inviteChannelID)
+	err = l.createInviteEmbed(session, interaction, name, int(amount), timeString, selectedRoleID, inviteChannelID)
 	content := fmt.Sprintf("Invite created in <#%v>!", inviteChannelID)
 	if err != nil {
 		content = err.Error()
 	}
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: content,
