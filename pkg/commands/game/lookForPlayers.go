@@ -113,7 +113,7 @@ func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.Interacti
 				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid name.")
 				return
 			}
-			if len(name) < 2 || len(name) > 25 {
+			if intWithinLimits(len(name), 2, 25) {
 				l.sendInvisibleInteractionResponse(s, i, "Your game needs to be between 2-25 characters long")
 				return
 			}
@@ -128,7 +128,7 @@ func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.Interacti
 				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid amount.")
 				return
 			}
-			if amount < 2 || amount > 40 {
+			if floatWithinLimits(amount, 2, 40) {
 				l.sendInvisibleInteractionResponse(s, i, "Your game needs to contain between 2-40 players")
 				return
 			}
@@ -141,7 +141,7 @@ func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.Interacti
 			}
 			roles, _ := s.GuildRoles(i.GuildID)
 			for _, role := range roles {
-				if selectedRoleID == role.ID && role.Color != 0x9c9c9c {
+				if isValidGamingRole(selectedRoleID, role) {
 					l.sendInvisibleInteractionResponse(s, i, "Please enter a valid gaming role.")
 					return
 				}
@@ -354,7 +354,7 @@ func (l *LookCommand) handleBtnClick(s *discordgo.Session, i *discordgo.Interact
 
 		_, activePlayers, activeBackupPlayers, backupPlayers, neededPlayers := l.addPlayer(message, uid)
 		l.handleJoinReaction(activePlayers, activeBackupPlayers, backupPlayers, neededPlayers, message, s)
-		if message.Embeds[0].Fields[2].Value == "Now!" && len(activePlayers) >= neededPlayers {
+		if playercountAndTimeReached(message, activePlayers, neededPlayers) {
 			l.startGame(s, i, activePlayers, backupPlayersIDs, neededPlayers, message)
 		}
 
@@ -452,12 +452,12 @@ func (l *LookCommand) addPlayer(message *discordgo.Message, reactionUser string)
 		activePlayerIndex, backupPlayerIndex := l.getPlayerIndexes(playersIDs, backupPlayersIDs, reactionUser)
 
 		// if in neither of the lists add them to players
-		if backupPlayerIndex == -1 && activePlayerIndex == -1 {
+		if playerNotInList(backupPlayerIndex) && playerNotInList(activePlayerIndex) {
 			playersIDs = append(playersIDs, reactionUser)
 		}
 
 		// if in backup move them to active
-		if backupPlayerIndex != -1 && activePlayerIndex == -1 {
+		if playerInList(backupPlayerIndex) && playerNotInList(activePlayerIndex) {
 			backupPlayersIDs = append(backupPlayersIDs[:backupPlayerIndex], backupPlayersIDs[backupPlayerIndex+1:]...)
 			playersIDs = append(playersIDs, reactionUser)
 		}
@@ -561,7 +561,7 @@ func (l *LookCommand) getPlayers(message *discordgo.Message) (string, int, []str
 	for i := 3; i <= 4; i++ {
 		playersMention := strings.Split(message.Embeds[0].Fields[i].Value, "\n")
 		for _, player := range playersMention {
-			if strings.HasSuffix(player, "\u200b") && player != "\u200b" {
+			if isBackupPlayer(player) {
 				//put the backup players in a different array
 				ID := strings.TrimRight(strings.TrimLeft(player, "<@"), ">\u200b")
 				backupPlayersIDs = append(backupPlayersIDs, ID)
@@ -609,7 +609,7 @@ func (l *LookCommand) startGame(s *discordgo.Session, i *discordgo.InteractionCr
 
 	//Notify players, except the host
 	err = l.messagePlayers(s, activePlayers[1:], message.Embeds[0], fmt.Sprintf("%s is starting now! You can join the channel here! <#%s>\nIf this does not show up, you make one yourself with `/hive type voice name:%s size:%d` in the request channel", message.Embeds[0].Title, channel.ID, message.Embeds[0].Title, neededPlayers))
-	if len(activePlayers) < neededPlayers && len(backupPlayers) != 0 {
+	if !isPlayerCountReached(activePlayers, neededPlayers) && len(backupPlayers) != 0 {
 		//Find out how many backup players need to be invited
 		backupsToAdd := neededPlayers - len(activePlayers)
 		if backupsToAdd > len(backupPlayers) {
@@ -658,7 +658,7 @@ func (l *LookCommand) handleJoinReaction(activePlayers, activeBackupPlayers, bac
 		for _, player := range activePlayers {
 			activePlayersString += fmt.Sprintf("<@%s>\n", player)
 		}
-		if len(backupPlayers) != 0 || len(activeBackupPlayers) != 0 {
+		if areBackupsPresent(backupPlayers) || areBackupsPresent(activeBackupPlayers) {
 			backupPlayersString = ""
 			for _, player := range activeBackupPlayers {
 				//join active selected
