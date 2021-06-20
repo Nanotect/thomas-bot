@@ -1,10 +1,15 @@
 package game
 
 import (
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+// Check for alphanumeric characters
+var reg = regexp.MustCompile(`^[A-Za-z0-9 ]+$`)
 
 // Boolean return types
 func isValidGamingRole(selectedId string, role *discordgo.Role) bool {
@@ -44,4 +49,73 @@ func intWithinLimits(toCheck int, lowerBound int, upperBound int) bool {
 
 func floatWithinLimits(toCheck float64, lowerBound float64, upperBound float64) bool {
 	return lowerBound <= toCheck && toCheck <= upperBound
+}
+
+// switch contents
+func getGameErrorResponse(option *discordgo.ApplicationCommandInteractionDataOption) string {
+	var name string
+	var ok bool
+	name, ok = option.Value.(string)
+
+	if !ok {
+		return "Please enter a valid name."
+	}
+	if intWithinLimits(len(name), 2, 25) {
+		return "Your game needs to be between 2-25 characters long"
+	}
+	if !reg.MatchString(name) {
+		return "Your game cannot contain any special characters"
+	}
+
+	return ""
+}
+
+func getAmountErrorResponse(option *discordgo.ApplicationCommandInteractionDataOption) string {
+	var amount float64
+	var ok bool
+
+	amount, ok = option.Value.(float64)
+
+	if !ok {
+		return "Please enter a valid amount."
+	}
+	if floatWithinLimits(amount, 2, 40) {
+		return "Your game needs to contain between 2-40 players."
+	}
+	return ""
+}
+
+func getNotifyroleErrorResponse(option *discordgo.ApplicationCommandInteractionDataOption, roles []*discordgo.Role) string {
+	var selectedRoleId string
+	var ok bool
+
+	selectedRoleId, ok = option.Value.(string)
+
+	if !ok {
+		return "Please enter a valid role."
+	}
+
+	for _, role := range roles {
+		if isValidGamingRole(selectedRoleId, role) {
+			return "Please enter a valid gaming role."
+		}
+	}
+
+	return ""
+}
+
+func getTimeErrorResponse(option *discordgo.ApplicationCommandInteractionDataOption) string {
+	var timeString string
+	var ok bool
+
+	timeString, ok = option.Value.(string)
+
+	if !ok {
+		return "Please enter a valid time in format hh:mm."
+	}
+	if _, err := time.Parse("15:04", timeString); err != nil {
+		return "Please enter your time in format hh:mm (For example 15:50)"
+	}
+
+	return ""
 }

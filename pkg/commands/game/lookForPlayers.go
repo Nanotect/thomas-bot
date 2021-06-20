@@ -3,10 +3,8 @@ package game
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/itfactory-tm/thomas-bot/pkg/util/slash"
 
@@ -103,60 +101,29 @@ func (l *LookCommand) SearchCommand(s *discordgo.Session, i *discordgo.Interacti
 	var name, selectedRoleID string
 	var amount float64
 	timeString := "Now!"
-	var ok bool
 
 	for _, option := range i.ApplicationCommandData().Options {
+		var errorResponse = ""
+
 		switch option.Name {
 		case "game":
-			name, ok = option.Value.(string)
-			if !ok {
-				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid name.")
-				return
-			}
-			if intWithinLimits(len(name), 2, 25) {
-				l.sendInvisibleInteractionResponse(s, i, "Your game needs to be between 2-25 characters long")
-				return
-			}
-			if matched, _ := regexp.MatchString(`^[A-Za-z0-9 ]+$`, name); !matched {
-				l.sendInvisibleInteractionResponse(s, i, "Your game cannot contain any special characters")
-				return
-			}
+			errorResponse = getGameErrorResponse(option)
 
 		case "amount":
-			amount, ok = option.Value.(float64)
-			if !ok {
-				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid amount.")
-				return
-			}
-			if floatWithinLimits(amount, 2, 40) {
-				l.sendInvisibleInteractionResponse(s, i, "Your game needs to contain between 2-40 players")
-				return
-			}
+			errorResponse = getAmountErrorResponse(option)
 
 		case "notifyrole":
-			selectedRoleID, ok = option.Value.(string)
-			if !ok {
-				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid role.")
-				return
-			}
 			roles, _ := s.GuildRoles(i.GuildID)
-			for _, role := range roles {
-				if isValidGamingRole(selectedRoleID, role) {
-					l.sendInvisibleInteractionResponse(s, i, "Please enter a valid gaming role.")
-					return
-				}
-			}
+			errorResponse = getNotifyroleErrorResponse(option, roles)
+
 			//Time case could be extended to handle different time zones for erasmus students
 		case "time":
-			timeString, ok = option.Value.(string)
-			if !ok {
-				l.sendInvisibleInteractionResponse(s, i, "Please enter a valid time in format 15:45.")
-				return
-			}
-			if _, err := time.Parse("15:04", timeString); err != nil {
-				l.sendInvisibleInteractionResponse(s, i, "Please enter your time in format hh:mm (For example 15:50)")
-				return
-			}
+			errorResponse = getTimeErrorResponse(option)
+		}
+
+		if len(errorResponse) > 0 {
+			l.sendInvisibleInteractionResponse(s, i, errorResponse)
+			return
 		}
 	}
 
